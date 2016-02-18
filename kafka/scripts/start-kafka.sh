@@ -9,6 +9,14 @@
 # * NUM_PARTITIONS: configure the default number of log partitions per topic
 # * KAFKA_CREATE_TOPICS: configure topics to be created at start up in the form of CSV of <topic:n_partitions:repl_factor>, e.g. "foo:1:1"
 
+KAFKA_HOME=/opt/kafka
+
+if [ -z $KAFKA_LOG_DIRS ]; then
+  KAFKA_LOG_DIRS=/mnt/kafka-logs
+fi
+mkdir -p $KAFKA_LOG_DIRS
+sed -r -i "s/#(log.dirs)=(.*)/${KAFKA_LOG_DIRS}/g" $KAFKA_HOME/config/server.properties
+
 # Configure advertised host/port if we run in helios
 if [ ! -z "$HELIOS_PORT_kafka" ]; then
     ADVERTISED_HOST=`echo $HELIOS_PORT_kafka | cut -d':' -f 1 | xargs -n 1 dig +short | tail -n 1`
@@ -29,7 +37,7 @@ fi
 if [ ! -z "$ZK_CHROOT" ]; then
     # wait for zookeeper to start up
     until /usr/share/zookeeper/bin/zkServer.sh status; do
-      sleep 0.1
+      sleep 0.5
     done
 
     # create the chroot node
@@ -40,6 +48,11 @@ if [ ! -z "$ZK_CHROOT" ]; then
 
     # configure kafka
     sed -r -i "s/(zookeeper.connect)=(.*)/\1=localhost:2181\/$ZK_CHROOT/g" $KAFKA_HOME/config/server.properties
+fi
+
+if [ ! -z $ZOOKEEPER_SERVERS ]; then
+  # TODO: ZOOKEEPER_SERVERS incompatible with ZK_CHROOT
+  sed -r -i "s/(zookeeper.connect)=(.*)/${ZOOKEEPER_SERVERS}/g" $KAFKA_HOME/config/server.properties
 fi
 
 # Allow specification of log retention policies
